@@ -1,0 +1,99 @@
+# The added rank column would calculate the number of times an article is appearing in the top ten list for every time the pull has been made.This would let us compare the different data pulls real time.
+#The rank would show us the story the types of stories that were most engaging in a quarter.
+
+import sys
+sys.path.append('/Applications/Data/anaconda/pkgs/requests-2.13.0-py27_0/lib/python2.7/site-packages')
+
+import requests
+from bs4 import BeautifulSoup
+import re
+import csv
+import pandas as pd
+import datetime
+
+def google_scraper(search):
+    address="https://www.google.com/search?gl=us&hl=en&tbm=nws&q=%s&gws_rd=cr" % (search)
+    r = requests.get(address)
+    resp = r.content
+    soup = BeautifulSoup(resp.decode('utf-8','ignore'))
+
+    url=[]
+    description=[]
+    outlet=[]
+    headline=[]
+
+    for x in soup.findAll('h3', attrs={'class':'r'}):
+        p = x.a['href'][7:]
+        url.append(p.rpartition('&sa')[0])
+    
+    a=soup.findAll('span', attrs={'class':'f'})
+    b=soup.findAll('div', attrs={'class':'st'})
+    c=soup.findAll('h3', attrs={'class':'r'}) 
+
+
+    for x in b:
+        p = re.compile(r'<.*?>')
+        description.append(p.sub('',str(x)).replace('.','').replace('&#39;',"'").replace('&amp;','&').replace('&nbsp;',' ').replace('&quot;','"').replace('&#8220;','"').replace('&#8211;','"').replace('&#8212','-'))
+    
+    for x in a:
+        p = re.compile(r'<.*?>')
+        outlet.append(p.sub('',str(x)).replace('.','').replace('&#39;',"'").replace('&amp;','&').replace('&nbsp;',' ').replace('&quot;','"').replace('&#8220;','"').replace('&#8211;','"').replace('&#8212','-'))
+    
+    for x in c:
+        p = re.compile(r'<.*?>')
+        a = p.sub('',str(x)).replace('.','').replace('&#39;',"'").replace('&amp;','&').replace('&nbsp;',' ').replace('&quot;','"').replace('&#8220;','"').replace('&#8211;','"').replace('&#8212','-')
+        #a = a.encode('utf8')
+        headline.append(a)
+    
+    urly=[]
+    for x in url:
+        urly.append(str(x))
+        
+    current_date=[]
+    
+    for x in url:
+        mylist = []
+        today = datetime.date.today()
+        mylist.append(today)
+        current_date.append(mylist[0])
+    
+    #creating a ranking column in the dataframe
+    n = 10
+    rank = [0]*n
+    
+    
+    linkers=zip(outlet, headline, urly, description, current_date, rank)
+    
+    return linkers
+    
+    results=google_scraper('Finra')
+
+#initial
+df = pd.DataFrame(results, columns=["Publication", "Title", "URL", "Extract", "Date", "Rank"])
+df.to_csv('testfinra.csv', index=False)
+
+#appending
+df = pd.DataFrame(results, columns=["Publication", "Title", "URL", "Extract", "Date", "Rank"])
+df.to_csv('testfinra.csv', mode='a', index=False, header=False)
+
+# The today dataframe will have the latest data pull from Google
+today = pd.read_csv('testfinra.csv')
+today
+
+# The yesterday dataframe refers to the last pull
+#Based on where the data pulls are held (server), we can write code to pull the previous data pull 
+# For an example, I have used the 6/24 data pull and compared it with the 6/25 data pull
+yesterday = pd.read_csv('testfinra1.csv') # previous data pull
+today = pd.read_csv('testfinra.csv') # latest data pull
+
+# a simple counter to compare data pulls
+
+for i in range(0,10):
+    for j in range(0,10):
+        if (today.iloc[i][1] == yesterday.iloc[j][1]):            
+            today['Rank'][i] += 1
+            break            
+today 
+
+position=[0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9]
+type(position)
